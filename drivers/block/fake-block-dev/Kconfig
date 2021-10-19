@@ -1,0 +1,4 @@
+config FAKE_BLOCK_DEV
+	tristate "Fake block device driver"
+	help
+	  TODO
