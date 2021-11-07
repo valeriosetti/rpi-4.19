@@ -225,6 +225,8 @@
 
 #include "configfs.h"
 
+#include "fake_mass_storage/fake_mass_storage.h"
+
 
 /*------------------------------------------------------------------------*/
 
@@ -332,6 +334,16 @@ struct fsg_dev {
 	struct usb_ep		*bulk_in;
 	struct usb_ep		*bulk_out;
 };
+
+ssize_t kernel_read_dummy(struct file *fp, void *buf, size_t size, loff_t *offset)
+{
+	(void) fp;
+	
+	memset((uint8_t*)buf, 0, size);
+	*offset += size;
+	
+	return size;
+}
 
 static inline int __fsg_is_set(struct fsg_common *common,
 			       const char *func, unsigned line)
@@ -492,6 +504,8 @@ static int fsg_setup(struct usb_function *f,
 	u16			w_value = le16_to_cpu(ctrl->wValue);
 	u16			w_length = le16_to_cpu(ctrl->wLength);
 
+	pr_err("%s - %d\n", __func__, __LINE__);
+	
 	if (!fsg_is_set(fsg->common))
 		return -EOPNOTSUPP;
 
@@ -691,8 +705,12 @@ static int do_read(struct fsg_common *common)
 
 		/* Perform the read */
 		file_offset_tmp = file_offset;
-		nread = kernel_read(curlun->filp, bh->buf, amount,
-				&file_offset_tmp);
+		//nread = kernel_read(curlun->filp, bh->buf, amount,
+		//		&file_offset_tmp);
+		if ( (amount % curlun->blkbits) != 0) {
+			pr_err("Warning: requested read size is not multiple of sector\n");
+		}
+		nread = fms_read(lba, amount >> curlun->blkbits, bh->buf);
 		VLDBG(curlun, "file read %u @ %llu -> %d\n", amount,
 		      (unsigned long long)file_offset, (int)nread);
 		if (signal_pending(current))
@@ -1025,7 +1043,7 @@ static int do_verify(struct fsg_common *common)
 
 		/* Perform the read */
 		file_offset_tmp = file_offset;
-		nread = kernel_read(curlun->filp, bh->buf, amount,
+		nread = kernel_read_dummy(curlun->filp, bh->buf, amount,
 				&file_offset_tmp);
 		VLDBG(curlun, "file read %u @ %llu -> %d\n", amount,
 				(unsigned long long) file_offset,
@@ -2901,6 +2919,8 @@ static int fsg_bind(struct usb_configuration *c, struct usb_function *f)
 	unsigned		max_burst;
 	int			ret;
 	struct fsg_opts		*opts;
+	
+	pr_err("%s - %d\n", __func__, __LINE__);
 
 	/* Don't allow to bind if we don't have at least one LUN */
 	ret = _fsg_common_get_max_lun(common);
@@ -2995,6 +3015,8 @@ static void fsg_unbind(struct usb_configuration *c, struct usb_function *f)
 {
 	struct fsg_dev		*fsg = fsg_from_func(f);
 	struct fsg_common	*common = fsg->common;
+	
+	pr_err("%s - %d\n", __func__, __LINE__);
 
 	DBG(fsg, "unbind\n");
 	if (fsg->common->fsg == fsg) {
@@ -3122,6 +3144,13 @@ static ssize_t fsg_lun_opts_inquiry_string_store(struct config_item *item,
 
 CONFIGFS_ATTR(fsg_lun_opts_, inquiry_string);
 
+static ssize_t fsg_lun_opts_data_input_store(struct config_item *item, const char *page,
+				    size_t len)
+{
+	return -EINVAL;
+}
+CONFIGFS_ATTR_WO(fsg_lun_opts_, data_input);
+
 static struct configfs_attribute *fsg_lun_attrs[] = {
 	&fsg_lun_opts_attr_file,
 	&fsg_lun_opts_attr_ro,
@@ -3129,6 +3158,7 @@ static struct configfs_attribute *fsg_lun_attrs[] = {
 	&fsg_lun_opts_attr_cdrom,
 	&fsg_lun_opts_attr_nofua,
 	&fsg_lun_opts_attr_inquiry_string,
+	&fsg_lun_opts_attr_data_input,
 	NULL,
 };
 
@@ -3336,6 +3366,8 @@ static const struct config_item_type fsg_func_type = {
 static void fsg_free_inst(struct usb_function_instance *fi)
 {
 	struct fsg_opts *opts;
+	
+	fms_exit();
 
 	opts = fsg_opts_from_func_inst(fi);
 	fsg_common_release(opts->common);
@@ -3380,6 +3412,8 @@ static struct usb_function_instance *fsg_alloc_inst(void)
 
 	config_group_init_type_name(&opts->lun0.group, "lun.0", &fsg_lun_type);
 	configfs_add_default_group(&opts->lun0.group, &opts->func_inst.group);
+	
+	fms_init();
 
 	return &opts->func_inst;
 
@@ -3412,6 +3446,8 @@ static struct usb_function *fsg_alloc(struct usb_function_instance *fi)
 	struct fsg_opts *opts = fsg_opts_from_func_inst(fi);
 	struct fsg_common *common = opts->common;
 	struct fsg_dev *fsg;
+	
+	pr_err("%s - %d\n", __func__, __LINE__);
 
 	fsg = kzalloc(sizeof(*fsg), GFP_KERNEL);
 	if (unlikely(!fsg))
