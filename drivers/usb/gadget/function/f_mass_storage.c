@@ -3147,7 +3147,11 @@ CONFIGFS_ATTR(fsg_lun_opts_, inquiry_string);
 static ssize_t fsg_lun_opts_data_input_store(struct config_item *item, const char *page,
 				    size_t len)
 {
-	return -EINVAL;
+	loff_t off = 0;
+	size_t ret_size;
+	
+	ret_size = fms_write(page, len, &off);
+	return ret_size;
 }
 CONFIGFS_ATTR_WO(fsg_lun_opts_, data_input);
 
