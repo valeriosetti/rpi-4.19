@@ -52,10 +52,10 @@ do {									\
 #  define dump_msg(fsg, /* const char * */ label, \
 		   /* const u8 * */ buf, /* unsigned */ length) do { } while (0)
 
-#  ifdef VERBOSE_DEBUG
+#  ifndef VERBOSE_DEBUG
 
 #    define dump_cdb(fsg)						\
-	print_hex_dump(KERN_DEBUG, "SCSI CDB: ", DUMP_PREFIX_NONE,	\
+	print_hex_dump(KERN_INFO, "SCSI CDB: ", DUMP_PREFIX_NONE,	\
 		       16, 1, (fsg)->cmnd, (fsg)->cmnd_size, 0)		\
 
 #  else

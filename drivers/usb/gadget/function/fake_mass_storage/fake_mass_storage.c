@@ -87,22 +87,26 @@ static size_t read_sector_from_internal_buffer(char *buf)
 {
 	size_t tmp_len;
 	size_t remaining_len = FBD_SECTOR_SIZE;
-	unsigned long stop_jiffies = jiffies + msecs_to_jiffies(MAX_DATA_READY_TIMEOUT);
+	//unsigned long stop_jiffies = jiffies + msecs_to_jiffies(MAX_DATA_READY_TIMEOUT);
 	
 	//pr_info("%s\n", __func__);
 	
 	data_buffer.fill_buffer = true;
 	
 	// wait until there's enough data to transfer in the buffer
-	while (data_buffer.valid_bytes < remaining_len) {
-		//pr_info("not enough data in the buffer. Wait\n");
-		mdelay(5);
-		
-		if (time_is_before_eq_jiffies(stop_jiffies)) {
-			//pr_warn("Warning: timeout reached without incoming data. Filling with zeros\n");
-			memset(buf, 0, remaining_len);
-			return remaining_len;
-		} 
+	//while (data_buffer.valid_bytes < remaining_len) {
+	//	//pr_info("not enough data in the buffer. Wait\n");
+	//	mdelay(5);
+	//	
+	//	if (time_is_before_eq_jiffies(stop_jiffies)) {
+	//		//pr_warn("Warning: timeout reached without incoming data. Filling with zeros\n");
+	//		memset(buf, 0, remaining_len);
+	//		return remaining_len;
+	//	} 
+	//}
+	if (data_buffer.valid_bytes < remaining_len) {
+		memset(buf, 0, remaining_len);
+		return remaining_len;
 	}
 	
 	mutex_lock(&(data_buffer.lock_mutex));
@@ -127,13 +131,13 @@ static size_t read_sector_from_internal_buffer(char *buf)
 	return FBD_SECTOR_SIZE;
 }
 
-int fms_read(unsigned long sector, unsigned long nsect, char *buffer)
+ssize_t fms_read(unsigned long sector, unsigned long nsect, char *buffer)
 {
 	ssize_t read_data_size = 0;
 	
 	if (sector >= N_SECTORS) {
 		pr_err("Error: trying to access to an invalid sector (%ld)\n", sector);
-		return -1;
+		return -EIO;
 	}
 	
 	pr_info("Reading %lu sectors starting at 0x%lx\n", nsect, sector); 

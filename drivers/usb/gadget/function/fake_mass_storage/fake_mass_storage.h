@@ -4,7 +4,7 @@
 #define FBD_SECTOR_SIZE		512 // fixed
 
 // uncomment the following define in order to include also MBR
-//#define SIMULATE_ENTIRE_DISK
+#define SIMULATE_ENTIRE_DISK
 
 #ifdef SIMULATE_ENTIRE_DISK
 	//#pragma message("simulating entire disk")
@@ -44,5 +44,5 @@
 
 int fms_init(void);
 void fms_exit(void);
-int fms_read(unsigned long sector, unsigned long nsect, char *buffer);
+ssize_t fms_read(unsigned long sector, unsigned long nsect, char *buffer);
 ssize_t fms_write(const char *buf, size_t len, loff_t *off);

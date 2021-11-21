@@ -5,7 +5,6 @@
 
 ccflags-y			:= -I$(srctree)/drivers/usb/gadget/
 ccflags-y			+= -I$(srctree)/drivers/usb/gadget/udc/
-ccflags-y			+= -DSIMULATE_ENTIRE_DISK
 
 # USB Functions
 usb_f_acm-y			:= f_acm.o
